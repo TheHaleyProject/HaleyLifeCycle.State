@@ -10,54 +10,22 @@ using static Haley.Internal.QueryFields;
 
 namespace Haley.Services {
     public partial class LifeCycleStateMariaDB {
-
-        // ----------------------------------------------------------
-        // 🔹 MAINTENANCE / UTILITIES
-        // ----------------------------------------------------------
-
+        // Keep PurgeOldLogs using NonQuery (rows affected). If you add NonQueryCountAsync, swap it in.
         public async Task<IFeedback<int>> PurgeOldLogs(int daysToKeep) {
             var fb = new Feedback<int>();
-            try {
-                var result = await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_MAINTENANCE.PURGE_OLD_LOGS },
-                    (FLAGS, daysToKeep));
-                if (result == null || result is not int deletedCount)
-                    return fb.SetMessage("PurgeOldLogs operation did not return a valid deleted count.");
-                return fb.SetStatus(true).SetResult(deletedCount);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "PurgeOldLogs failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
+            var res = await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_MAINTENANCE.PURGE_OLD_LOGS }, (FLAGS, daysToKeep));
+            if (res is int n) return fb.SetStatus(true).SetResult(n);
+            return fb.SetMessage("PurgeOldLogs operation did not return a valid deleted count.");
         }
 
-        public async Task<IFeedback<int>> CountInstances(int defVersion, int flagsFilter = 0) {
-            var fb = new Feedback<int>();
-            try {
-                var result = await _agw.Scalar(new AdapterArgs(_key) { Query = QRY_MAINTENANCE.COUNT_INSTANCES },
-                    (DEF_VERSION, defVersion),
-                    (FLAGS, flagsFilter));
-
-                if (result == null || !int.TryParse(result.ToString(), out var count))
-                    return fb.SetMessage("Unable to count instances.");
-
-                return fb.SetStatus(true).SetResult(count);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "CountInstances failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<int>> CountInstances(int defVersion, int flagsFilter = 0) =>
+            _agw.ScalarAsync<int>(_key, QRY_MAINTENANCE.COUNT_INSTANCES, (DEF_VERSION, defVersion), (FLAGS, flagsFilter));
 
         public async Task<IFeedback> RebuildIndexes() {
             var fb = new Feedback();
-            try {
-                await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_MAINTENANCE.REBUILD_INDEXES });
-                return fb.SetStatus(true).SetMessage("Database indexes optimized successfully.");
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "RebuildIndexes failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
+            var res = await _agw.NonQueryAsync(_key, QRY_MAINTENANCE.REBUILD_INDEXES);
+            if (res.Status) return fb.SetStatus(true).SetMessage("Database indexes optimized successfully.");
+            return fb.SetMessage(res.Message);
         }
     }
 }

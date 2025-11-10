@@ -4,151 +4,46 @@ using Haley.Internal;
 using Haley.Models;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using static Haley.Internal.QueryFields;
 
 namespace Haley.Services {
     public partial class LifeCycleStateMariaDB {
+        public Task<IFeedback<Dictionary<string, object>>> RegisterInstance(long defVersion, int currentState, int lastEvent, string externalRef, LifeCycleInstanceFlag flags) =>
+                 _agw.ReadSingleAsync(_key, QRY_INSTANCE.INSERT, (EVENT, lastEvent), (CURRENT_STATE, currentState), (EXTERNAL_REF, externalRef), (FLAGS, (int)flags), (DEF_VERSION, defVersion));
 
-        // ----------------------------------------------------------
-        // INSTANCE MANAGEMENT
-        // ----------------------------------------------------------
+        public Task<IFeedback<Dictionary<string, object>>> GetInstanceById(long id) =>
+            _agw.ReadSingleAsync(_key, QRY_INSTANCE.GET_BY_ID, (ID, id));
 
-        public async Task<IFeedback<long>> RegisterInstance(long defVersion, int currentState, int lastEvent, string externalRef, string externalType, LifeCycleInstanceFlag flags) {
-            var fb = new Feedback<long>();
-            try {
-                var result = await _agw.Scalar(new AdapterArgs(_key) { Query = QRY_INSTANCE.INSERT },
-                    (EVENT, lastEvent),
-                    (CURRENT_STATE, currentState),
-                    (EXTERNAL_REF, externalRef),
-                    (EXTERNAL_TYPE, externalType ?? string.Empty),
-                    (FLAGS, (int)flags),
-                    (DEF_VERSION, defVersion));
+        public Task<IFeedback<Dictionary<string, object>>> GetInstanceByGuid(string guid) =>
+            _agw.ReadSingleAsync(_key, QRY_INSTANCE.GET_BY_GUID, (GUID, guid));
 
-                if (result == null || !long.TryParse(result.ToString(), out var id))
-                    return fb.SetMessage($"Unable to register instance for {externalRef}");
+        public Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByRef(string externalRef) =>
+            _agw.ReadAsync(_key, QRY_INSTANCE.GET_BY_REF, (EXTERNAL_REF, externalRef));
 
-                return fb.SetStatus(true).SetResult(id);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "RegisterInstance failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByState(int stateId) =>
+            _agw.ReadAsync(_key, QRY_INSTANCE.GET_BY_STATE, (CURRENT_STATE, stateId));
 
-        public async Task<IFeedback<Dictionary<string, object>>> GetInstanceById(long id) {
-            var fb = new Feedback<Dictionary<string, object>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_INSTANCE.GET_BY_ID, Filter = ResultFilter.FirstDictionary },
-                    (ID, id));
+        public Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByFlags(LifeCycleInstanceFlag flags) =>
+            _agw.ReadAsync(_key, QRY_INSTANCE.GET_BY_FLAGS, (FLAGS, (int)flags));
 
-                if (result is not Dictionary<string, object> dic)
-                    return fb.SetMessage($"Instance {id} not found.");
+        public Task<IFeedback<bool>> UpdateInstanceState(long instanceId, int newState, int lastEvent, LifeCycleInstanceFlag flags) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.UPDATE_STATE, (CURRENT_STATE, newState), (EVENT, lastEvent), (FLAGS, (int)flags), (ID, instanceId));
 
-                return fb.SetStatus(true).SetResult(dic);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetInstanceById failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<bool>> UpdateInstanceStateByGuid(string guid, int newState, int lastEvent, LifeCycleInstanceFlag flags) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.UPDATE_STATE_BY_GUID, (CURRENT_STATE, newState), (EVENT, lastEvent), (FLAGS, (int)flags), (GUID, guid));
 
-        public async Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByRef(string externalRef) {
-            var fb = new Feedback<List<Dictionary<string, object>>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_INSTANCE.GET_BY_REF },
-                    (EXTERNAL_REF, externalRef));
+        public Task<IFeedback<bool>> MarkInstanceCompleted(long instanceId) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.MARK_COMPLETED, (ID, instanceId));
 
-                if (result is not List<Dictionary<string, object>> list || list.Count == 0)
-                    return fb.SetMessage($"No instances found for reference '{externalRef}'.");
+        public Task<IFeedback<bool>> MarkInstanceCompletedByGuid(string guid) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.MARK_COMPLETED_BY_GUID, (GUID, guid));
 
-                return fb.SetStatus(true).SetResult(list);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetInstancesByRef failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<bool>> DeleteInstance(long instanceId) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.DELETE, (ID, instanceId));
 
-        public async Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByState(int stateId) {
-            var fb = new Feedback<List<Dictionary<string, object>>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_INSTANCE.GET_BY_STATE },
-                    (CURRENT_STATE, stateId));
-
-                if (result is not List<Dictionary<string, object>> list || list.Count == 0)
-                    return fb.SetMessage($"No instances found for state {stateId}.");
-
-                return fb.SetStatus(true).SetResult(list);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetInstancesByState failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<List<Dictionary<string, object>>>> GetInstancesByFlags(LifeCycleInstanceFlag flags) {
-            var fb = new Feedback<List<Dictionary<string, object>>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_INSTANCE.GET_BY_FLAGS },
-                    (FLAGS, (int)flags));
-
-                if (result is not List<Dictionary<string, object>> list || list.Count == 0)
-                    return fb.SetMessage($"No instances found matching flags: {flags}.");
-
-                return fb.SetStatus(true).SetResult(list);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetInstancesByFlags failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<bool>> UpdateInstanceState(long instanceId, int newState, int lastEvent, LifeCycleInstanceFlag flags) {
-            var fb = new Feedback<bool>();
-            try {
-                await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_INSTANCE.UPDATE_STATE },
-                    (CURRENT_STATE, newState),
-                    (EVENT, lastEvent),
-                    (FLAGS, (int)flags),
-                    (ID, instanceId));
-
-                return fb.SetStatus(true).SetResult(true);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "UpdateInstanceState failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<bool>> MarkInstanceCompleted(long instanceId) {
-            var fb = new Feedback<bool>();
-            try {
-                await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_INSTANCE.MARK_COMPLETED },
-                    (ID, instanceId));
-
-                return fb.SetStatus(true).SetResult(true);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "MarkInstanceCompleted failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<bool>> DeleteInstance(long instanceId) {
-            var fb = new Feedback<bool>();
-            try {
-                await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_INSTANCE.DELETE },
-                    (ID, instanceId));
-
-                return fb.SetStatus(true).SetResult(true);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "DeleteInstance failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<bool>> DeleteInstanceByGuid(string guid) =>
+            _agw.NonQueryAsync(_key, QRY_INSTANCE.DELETE_BY_GUID, (GUID, guid));
     }
 }

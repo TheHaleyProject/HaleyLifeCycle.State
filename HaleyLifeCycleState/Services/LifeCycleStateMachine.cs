@@ -107,7 +107,7 @@ namespace Haley.Services {
             if (initFb.Result == null) throw new InvalidOperationException($"No initial state for def_version {definitionVersion}");
 
             int initStateId = ToInt(initFb.Result["id"]);
-            var regFb = await _repo.RegisterInstance(definitionVersion, initStateId, 0, externalRefId.ToString(), externalRefType, LifeCycleInstanceFlag.Active);
+            var regFb = await _repo.RegisterInstance(definitionVersion, initStateId, 0, externalRefId.ToString(), LifeCycleInstanceFlag.Active);
             await ThrowIfFailed(regFb, "RegisterInstance");
         }
 

@@ -1,6 +1,6 @@
 -- --------------------------------------------------------
 -- Host:                         127.0.0.1
--- Server version:               11.8.2-MariaDB - mariadb.org binary distribution
+-- Server version:               11.7.2-MariaDB - mariadb.org binary distribution
 -- Server OS:                    Win64
 -- HeidiSQL Version:             12.10.0.7000
 -- --------------------------------------------------------
@@ -16,19 +16,38 @@
 
 
 -- Dumping database structure for lifecycle_state
-CREATE DATABASE IF NOT EXISTS `lifecycle_state` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
+CREATE DATABASE IF NOT EXISTS `lifecycle_state` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_swedish_ci */;
 USE `lifecycle_state`;
+
+-- Dumping structure for table lifecycle_state.ack_log
+CREATE TABLE IF NOT EXISTS `ack_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `transition_log` bigint(20) NOT NULL,
+  `ack_status` int(11) NOT NULL DEFAULT 0 COMMENT 'Flag:\n1 = Sent\n2 = Acknowledged\n3 = Failed',
+  `last_retry` datetime NOT NULL DEFAULT utc_timestamp(),
+  `retry_count` int(11) NOT NULL DEFAULT 0,
+  `created` datetime NOT NULL DEFAULT utc_timestamp(),
+  `modified` datetime NOT NULL DEFAULT utc_timestamp(),
+  `message_id` char(36) NOT NULL DEFAULT uuid(),
+  PRIMARY KEY (`id`),
+  KEY `fk_ack_log_transition_log` (`transition_log`),
+  CONSTRAINT `fk_ack_log_transition_log` FOREIGN KEY (`transition_log`) REFERENCES `transition_log` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- Data exporting was unselected.
 
 -- Dumping structure for table lifecycle_state.definition
 CREATE TABLE IF NOT EXISTS `definition` (
   `guid` char(36) NOT NULL DEFAULT uuid(),
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `display_name` varchar(200) NOT NULL,
-  `name` varchar(200) GENERATED ALWAYS AS (lcase(`display_name`)) STORED,
+  `name` varchar(200) GENERATED ALWAYS AS (lcase(`display_name`)) VIRTUAL,
   `description` text DEFAULT NULL,
   `created` datetime NOT NULL DEFAULT utc_timestamp(),
   `env` int(11) NOT NULL DEFAULT 0 COMMENT 'environment code\nCOMMENT ''0=Dev,1=Test,2=UAT,3=Prod''',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unq_definition_0` (`guid`),
+  UNIQUE KEY `unq_definition` (`env`,`name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1998 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 -- Data exporting was unselected.
@@ -36,13 +55,14 @@ CREATE TABLE IF NOT EXISTS `definition` (
 -- Dumping structure for table lifecycle_state.def_version
 CREATE TABLE IF NOT EXISTS `def_version` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `parent` int(11) NOT NULL,
   `guid` char(36) NOT NULL DEFAULT uuid(),
   `version` int(11) NOT NULL DEFAULT 1,
   `created` datetime NOT NULL DEFAULT utc_timestamp(),
   `modified` datetime NOT NULL DEFAULT utc_timestamp(),
   `data` longtext NOT NULL,
+  `parent` int(11) NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `unq_def_version` (`parent`,`version`),
   UNIQUE KEY `unq_def_version_0` (`guid`),
   KEY `fk_def_version_definition` (`parent`),
   CONSTRAINT `fk_def_version_definition` FOREIGN KEY (`parent`) REFERENCES `definition` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -54,9 +74,9 @@ CREATE TABLE IF NOT EXISTS `def_version` (
 
 -- Dumping structure for table lifecycle_state.events
 CREATE TABLE IF NOT EXISTS `events` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `display_name` varchar(120) NOT NULL,
-  `name` varchar(120) GENERATED ALWAYS AS (lcase(`display_name`)) STORED,
+  `name` varchar(120) GENERATED ALWAYS AS (lcase(`display_name`)) VIRTUAL,
   `def_version` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unq_events` (`def_version`,`name`),
@@ -67,13 +87,13 @@ CREATE TABLE IF NOT EXISTS `events` (
 
 -- Dumping structure for table lifecycle_state.instance
 CREATE TABLE IF NOT EXISTS `instance` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `guid` char(36) NOT NULL DEFAULT uuid(),
-  `last_event` int(11) NOT NULL,
   `current_state` int(11) NOT NULL,
-  `external_ref` varchar(120) DEFAULT NULL COMMENT 'like external workflow id or submission id or transmittal id.. Like wf-182, dabc-0203, etc,',
+  `last_event` int(11) NOT NULL,
+  `guid` char(36) NOT NULL DEFAULT uuid(),
   `external_type` varchar(120) DEFAULT NULL COMMENT 'workflow, submission',
   `flags` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'active =1,\nsuspended =2 ,\ncompleted = 4,\nfailed = 8, \narchive = 16',
+  `external_ref` varchar(120) DEFAULT NULL COMMENT 'like external workflow id or submission id or transmittal id.. Like wf-182, dabc-0203, etc,',
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `created` datetime NOT NULL DEFAULT utc_timestamp(),
   `modified` datetime NOT NULL DEFAULT utc_timestamp(),
   `def_version` int(11) NOT NULL,
@@ -93,7 +113,7 @@ CREATE TABLE IF NOT EXISTS `instance` (
 CREATE TABLE IF NOT EXISTS `state` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `display_name` varchar(200) NOT NULL,
-  `name` varchar(200) GENERATED ALWAYS AS (lcase(`display_name`)) STORED,
+  `name` varchar(200) GENERATED ALWAYS AS (lcase(`display_name`)) VIRTUAL,
   `flags` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'is_initial = 1\nis_final = 2\nis_system = 4\nis_error = 8',
   `created` datetime NOT NULL DEFAULT utc_timestamp(),
   `category` varchar(120) DEFAULT NULL,
@@ -107,14 +127,14 @@ CREATE TABLE IF NOT EXISTS `state` (
 
 -- Dumping structure for table lifecycle_state.transition
 CREATE TABLE IF NOT EXISTS `transition` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
   `from_state` int(11) NOT NULL,
   `to_state` int(11) NOT NULL,
-  `event` int(11) NOT NULL,
-  `flags` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'is_auto = 1\nneeds_approval = 2\ncan_retry = 4\nis_critical = 8',
-  `guard_condition` text DEFAULT NULL,
-  `created` datetime DEFAULT utc_timestamp(),
   `def_version` int(11) NOT NULL,
+  `flags` int(10) unsigned NOT NULL DEFAULT 0 COMMENT 'is_auto = 1\nneeds_approval = 2\ncan_retry = 4\nis_critical = 8',
+  `guard_key` varchar(200) DEFAULT NULL,
+  `created` datetime DEFAULT utc_timestamp(),
+  `event` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unq_transition` (`def_version`,`from_state`,`to_state`,`event`),
   KEY `fk_transition_state` (`from_state`),

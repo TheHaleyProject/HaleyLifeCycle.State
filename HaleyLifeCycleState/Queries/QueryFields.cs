@@ -31,7 +31,6 @@ namespace Haley.Internal {
         // Instance Fields
         public const string CURRENT_STATE = "@CURRENT_STATE";
         public const string EXTERNAL_REF = "@EXTERNAL_REF";
-        public const string EXTERNAL_TYPE = "@EXTERNAL_TYPE";
 
         // Transition Log Fields
         public const string INSTANCE_ID = "@INSTANCE_ID";

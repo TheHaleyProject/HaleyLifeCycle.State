@@ -11,74 +11,16 @@ using static Haley.Internal.QueryFields;
 
 namespace Haley.Services {
     public partial class LifeCycleStateMariaDB {
+        public Task<IFeedback<long>> RegisterEvent(string displayName, int defVersion) =>
+            _agw.ScalarAsync<long>(_key, QRY_EVENT.INSERT, (DISPLAY_NAME, displayName), (DEF_VERSION, defVersion));
 
-        // ----------------------------------------------------------
-        // EVENT MANAGEMENT
-        // ----------------------------------------------------------
+        public Task<IFeedback<List<Dictionary<string, object>>>> GetEventsByVersion(int defVersion) =>
+            _agw.ReadAsync(_key, QRY_EVENT.GET_BY_VERSION, (DEF_VERSION, defVersion));
 
-        public async Task<IFeedback<long>> RegisterEvent(string displayName, int defVersion) {
-            var fb = new Feedback<long>();
-            try {
-                var result = await _agw.Scalar(new AdapterArgs(_key) { Query = QRY_EVENT.INSERT },
-                    (DISPLAY_NAME, displayName),
-                    (DEF_VERSION, defVersion));
+        public Task<IFeedback<Dictionary<string, object>>> GetEventByName(int defVersion, string name) =>
+            _agw.ReadSingleAsync(_key, QRY_EVENT.GET_BY_NAME, (DEF_VERSION, defVersion), (NAME, name.ToLower()));
 
-                if (result == null || !long.TryParse(result.ToString(), out var id))
-                    return fb.SetMessage($"Unable to register event: {displayName}");
-
-                return fb.SetStatus(true).SetResult(id);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "RegisterEvent failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<List<Dictionary<string, object>>>> GetEventsByVersion(int defVersion) {
-            var fb = new Feedback<List<Dictionary<string, object>>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_EVENT.GET_BY_VERSION },
-                    (DEF_VERSION, defVersion));
-
-                if (result is not List<Dictionary<string, object>> list || list.Count == 0)
-                    return fb.SetMessage($"No events found for version {defVersion}.");
-
-                return fb.SetStatus(true).SetResult(list);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetEventsByVersion failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<Dictionary<string, object>>> GetEventByName(int defVersion, string name) {
-            var fb = new Feedback<Dictionary<string, object>>();
-            try {
-                var result = await _agw.Read(new AdapterArgs(_key) { Query = QRY_EVENT.GET_BY_NAME, Filter = ResultFilter.FirstDictionary },
-                    (DEF_VERSION, defVersion),
-                    (NAME, name.ToLower()));
-
-                if (result is not Dictionary<string, object> dic)
-                    return fb.SetMessage($"Event '{name}' not found for version {defVersion}.");
-
-                return fb.SetStatus(true).SetResult(dic);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "GetEventByName failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
-
-        public async Task<IFeedback<bool>> DeleteEvent(int eventId) {
-            var fb = new Feedback<bool>();
-            try {
-                await _agw.NonQuery(new AdapterArgs(_key) { Query = QRY_EVENT.DELETE }, (ID, eventId));
-                return fb.SetStatus(true).SetResult(true);
-            } catch (Exception ex) {
-                _logger?.LogError(ex, "DeleteEvent failed.");
-                if (ThrowExceptions) throw;
-                return fb.SetMessage(ex.Message);
-            }
-        }
+        public Task<IFeedback<bool>> DeleteEvent(int eventId) =>
+            _agw.NonQueryAsync(_key, QRY_EVENT.DELETE, (ID, eventId));
     }
 }

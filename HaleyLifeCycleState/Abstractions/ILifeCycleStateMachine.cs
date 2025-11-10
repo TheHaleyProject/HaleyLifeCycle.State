@@ -29,5 +29,8 @@ namespace Haley.Abstractions {
 
         Task<bool> IsFinalStateAsync(Guid stateId);
         Task<bool> IsInitialStateAsync(Guid stateId);
+
+        Task<IFeedback<DefinitionLoadResult>> ImportDefinitionFromFileAsync(string filePath);
+        Task<IFeedback<DefinitionLoadResult>> ImportDefinitionFromJsonAsync(string json);
     }
 }

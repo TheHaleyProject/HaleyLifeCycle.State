@@ -16,9 +16,6 @@
 
 
 -- Dumping database structure for lcstate
-CREATE DATABASE IF NOT EXISTS `lcstate` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
-USE `lcstate`;
-
 -- Dumping structure for table lcstate.ack
 CREATE TABLE IF NOT EXISTS `ack` (
   `guid` char(36) NOT NULL DEFAULT uuid() COMMENT 'Stable GUID used for external correlation.',

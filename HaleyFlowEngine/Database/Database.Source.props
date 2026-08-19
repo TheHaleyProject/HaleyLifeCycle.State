@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <HaleyFlowEngineDatabaseRoot Condition="'$(HaleyFlowEngineDatabaseRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\_RESOURCES'))</HaleyFlowEngineDatabaseRoot>
+    <HaleyFlowEngineDatabaseSource>$(HaleyFlowEngineDatabaseRoot)</HaleyFlowEngineDatabaseSource>
+  </PropertyGroup>
+
+  <Target Name="ValidateHaleyFlowEngineDatabaseSource" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(HaleyFlowEngineDatabaseSource)\lc_state.sql')" Text="Haley.Flow.Engine database source was not found at '$(HaleyFlowEngineDatabaseSource)\lc_state.sql'. Restore HaleyFlow.Engine/_RESOURCES or set HaleyFlowEngineDatabaseRoot." />
+  </Target>
+
+  <ItemGroup Condition="Exists('$(HaleyFlowEngineDatabaseSource)\lc_state.sql')">
+    <EmbeddedResource Include="$(HaleyFlowEngineDatabaseSource)\lc_state.sql" Link="Scripts\lc_state.sql" LogicalName="Haley.Scripts.lc_state.sql" />
+  </ItemGroup>
+</Project>

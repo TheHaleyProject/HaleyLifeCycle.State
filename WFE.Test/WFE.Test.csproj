@@ -10,9 +10,9 @@
   <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />
 
   <Choose>
-    <When Condition="Exists($(HaleyFlowEngine))">
+    <When Condition="Exists('$(HaleyFlowEngineProj)')">
       <ItemGroup>
-        <ProjectReference Include="$(HaleyFlowEngine)\HaleyFlowEngine.csproj">
+        <ProjectReference Include="$(HaleyFlowEngineProj)">
           <Name>HaleyFlowEngine</Name>
         </ProjectReference>
       </ItemGroup>
@@ -25,9 +25,9 @@
   </Choose>
 
   <Choose>
-    <When Condition="Exists($(HaleyLog))">
+    <When Condition="Exists('$(HaleyLogProj)')">
       <ItemGroup>
-        <ProjectReference Include="$(HaleyLog)\HaleyLog.csproj">
+        <ProjectReference Include="$(HaleyLogProj)">
           <Name>HaleyLog</Name>
         </ProjectReference>
       </ItemGroup>
@@ -40,9 +40,9 @@
   </Choose>
 
   <Choose>
-    <When Condition="Exists($(HaleyHelpers))">
+    <When Condition="Exists('$(HaleyHelpersProj)')">
       <ItemGroup>
-        <ProjectReference Include="$(HaleyHelpers)\HaleyHelpers.csproj">
+        <ProjectReference Include="$(HaleyHelpersProj)">
           <Name>HaleyHelpers</Name>
         </ProjectReference>
       </ItemGroup>

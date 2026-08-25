@@ -1,5 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\HaleyProject\HaleyVersion.Props" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <HaleyProject Condition="'$(HaleyProject)' == ''">$(MSBuildProjectDirectory)\..\..</HaleyProject>
+  </PropertyGroup>
+  <Import Project="$(HaleyProject)\HaleyProject\Haley.Source.Props" />
+  <Import Project="$(HaleyProject)\HaleyProject\Haley.Version.Props" />
+  <Import Project="$(HaleyProject)\HaleyProject\Haley.Paths.Props" />
   <Import Project="Database\Database.Source.props" />
   <PropertyGroup>
     <TargetFrameworks>net8.0</TargetFrameworks>
@@ -50,12 +55,10 @@
     <WarningLevel>2</WarningLevel>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
-
-  <Import Project="$(SolutionDir)ProjectReferences_$(SolutionName).txt" Condition="Exists('$(SolutionDir)ProjectReferences_$(SolutionName).txt')" />
   <Choose>
-    <When Condition="Exists($(HaleyHelpersDB))">
+    <When Condition="Exists('$(HaleyHelpersDBProj)')">
       <ItemGroup>
-        <ProjectReference Include="$(HaleyHelpersDB)\HaleyHelpersDB.csproj">
+        <ProjectReference Include="$(HaleyHelpersDBProj)">
           <Name>HaleyHelpersDB</Name>
         </ProjectReference>
       </ItemGroup>
